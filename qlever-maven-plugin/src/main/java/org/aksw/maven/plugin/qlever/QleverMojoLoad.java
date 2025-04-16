@@ -43,6 +43,7 @@ import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RDFFormat;
 import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.modify.request.UpdateLoad;
 import org.apache.jena.tdb2.TDB2Factory;
 import org.apache.maven.plugin.AbstractMojo;
@@ -105,6 +106,9 @@ public class QleverMojoLoad extends AbstractMojo {
      *
      */
     // TODO Generate content-type+encoding combinations from registries
+    // content types: nt, ttl, nq, trig, owl (could be obtained from Jena registry)
+    // compression encodings: gz, bz2 (could be obtained from commons compress)
+
     @Parameter(defaultValue = "nt,ttl,nq,trig,owl,nt.gz,ttl.gz,nq.gz,trig.gz,owl.gz,nt.bz2,ttl.bz2,nq.bz2,trig.bz2,owl.bz2")
     private String includeTypes;
 
@@ -115,10 +119,53 @@ public class QleverMojoLoad extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.directory}/qlever.tar.gz")
     private File outputFile;
 
+    /**
+     * If unspecified or blank then each dependency is loaded into its own graph by default.
+     * If a target graph is given then all dependencies are merged into this graph.
+     */
+    @Parameter(property = "qlever.targetGraph", defaultValue = "")
+    private String targetGraph;
+
     /** Output file (the folder as an archive) */
 //    @Parameter(defaultValue = "${project.build.directory}/tdb2.load.ttl")
 //    private File loadStateFile;
 
+    /**
+     * Artifacts can be patterns for matching direct dependencies.
+     *
+     * TODO DRAFT:
+     * {@code *} Is a placeholder for matching all characters except for {@code :}.
+     * E.g. my.group:*:*:ttl (any artifact, any version, ttl)
+     * {@code **} Matches any character including {@code :}.
+     *
+     * TODO How to omit matches from e.g. the default mapping?
+     * Default mapping maps each dataset to a graph with name of the artifact.
+     *
+     * To map everything into the default graph use
+     * <graphMap>
+     *   <graph>DEFAULT</graph>
+     *   <patterns>
+     *     <pattern>*:*:*:*:*</pattern>
+     *   <patterns>
+     *   <unpool>true</unpool>
+     * </graphMap>
+     *
+     * Use the goal qlever:graphmap to inspect the graph mapping without performing a load.
+     */
+//    public static class GraphArtifactMapping {
+//        protected String graph;
+//        protected List<String> artifacts = new ArrayList<>();
+//
+//        public String getGraph() { return graph; }
+//        public void setGraph(String graph) { this.graph = graph; }
+//
+//        public List<String> getArtifacts() {
+//            return artifacts;
+//        }
+//    }
+
+    // File-based mapping requires a project folder and is thus not self-contained to a pom
+    // in contrast to artifact-based mappings.
     public static class FileToGraphMapping {
         protected File file;
         protected String graph;
@@ -200,11 +247,10 @@ public class QleverMojoLoad extends AbstractMojo {
             File artifactFile = artifactResult.getArtifact().getFile();
             String artifactPath = artifactFile.getAbsolutePath();
 
-            String graphName = "urn:mvn:" + toString(artifact);
+            Node graphNode = calcTargetGraphNode(artifact);
+            logger.info("Selecting Qlever workload: " + artifactPath + " -> " + graphNode);
 
-            logger.info("Selecting TDB2 workload: " + artifactPath + " -> " + graphName);
-
-            UpdateLoad update = new UpdateLoad(artifactPath, graphName);
+            UpdateLoad update = new UpdateLoad(artifactPath, graphNode);
             workloads.add(update);
         }
 
@@ -318,6 +364,21 @@ public class QleverMojoLoad extends AbstractMojo {
                 mavenProjectHelper.attachArtifact(project, "qlever.tar.gz", outputFile);
             }
         }
+    }
+
+    protected Node calcTargetGraphNode(Artifact artifact) {
+        Node result;
+        if (targetGraph == null || targetGraph.isBlank()) {
+            result = NodeFactory.createURI("urn:mvn:" + toString(artifact));
+        } else {
+            if (targetGraph.equalsIgnoreCase("default")) {
+                result = null;
+            } else {
+                Node node = NodeFactory.createURI(targetGraph);
+                result = Quad.isDefaultGraph(node) ? null : node;
+            }
+        }
+        return result;
     }
 
     public static String getGraphLabel(Node graphNode) {
