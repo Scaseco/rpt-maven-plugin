@@ -17,8 +17,8 @@
 	<inceptionYear>2025</inceptionYear>
 
 	<properties>
-		<jena.version>5.4.0-SNAPSHOT</jena.version>
-		<jenax.version>5.4.0-1-SNAPSHOT</jenax.version>
+		<jena.version>5.5.0-SNAPSHOT</jena.version>
+		<jenax.version>5.5.0-1-SNAPSHOT</jenax.version>
 	</properties>
 
 	<prerequisites>
