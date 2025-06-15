@@ -30,7 +30,6 @@ import org.aksw.commons.io.util.FileUtils;
 import org.aksw.commons.io.util.FileUtils.OverwritePolicy;
 import org.aksw.jenax.dataaccess.sparql.creator.FileSet;
 import org.aksw.jenax.dataaccess.sparql.creator.RDFDatabase;
-import org.aksw.jenax.dataaccess.sparql.creator.RdfDatabaseBuilder;
 import org.aksw.jenax.engine.qlever.RdfDatabaseBuilderQlever;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
@@ -94,6 +93,9 @@ public class QleverMojoLoad extends AbstractMojo {
 
     @Parameter(property = "qlever.skip", defaultValue = "false")
     protected boolean skip;
+
+    @Parameter(property = "qlever.stxxlMemory")
+    private String stxxlMemory;
 
     /**
      * Comma separated list of dependency type suffixes which to include.
@@ -288,7 +290,8 @@ public class QleverMojoLoad extends AbstractMojo {
         // Dataset dataset = TDB2Factory.connectDataset(location);
 
         String indexName = project.getArtifactId() + "-" + project.getVersion();
-        RdfDatabaseBuilder dbLoader = new RdfDatabaseBuilderQlever()
+        RdfDatabaseBuilderQlever<?> dbLoader = new RdfDatabaseBuilderQlever<>()
+                .setStxxlMemory(stxxlMemory)
                 .setOutputFolder(outputPath)
                 .setIndexName(indexName);
 
